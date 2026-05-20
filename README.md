@@ -57,11 +57,17 @@ docker compose up -d
 6. Run the toy Spark query (CSV vs Iceberg)
 
 ```bash
-docker compose exec -T spark /opt/spark/bin/spark-submit /opt/spark/app/toy_query.py
+docker compose exec -T spark /opt/spark/bin/spark-submit --packages "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.0" /opt/spark/app/toy_query.py
 ```
 
 ## Iceberg catalog configuration
 
-- Spark will use the Hive Metastore catalog and MinIO via S3A.
-- See conf/spark-defaults.conf for the catalog configuration to be used when Spark is added.
+- Spark uses a **hadoop (file-based) catalog** for local dev: metadata stored at `/opt/lakehouse/warehouse` (mounted from host).
+- Iceberg and S3A packages are downloaded at PySpark session init time via `spark.jars.packages` (see `spark/load_table.py` and `spark/toy_query.py`). No mounts or `spark-defaults.conf` required.
+
+## Architecture notes & developer guidance
+
+- **Jar initialization (recommended)**: Iceberg and S3A packages are supplied explicitly using `--packages` during `spark-submit`. This is required so dependencies are correctly resolved by the JVM ClassLoader early enough before Iceberg tries to load `HadoopFileIO` and S3A capabilities, avoiding S3A instantiation errors and ensuring portablility. No static mounted jars or `spark-defaults.conf` tweaks required.
+- **Catalog**: Hadoop (file-based) catalog for simplicity. For production, switch to Hive Metastore or Nessie.
+- Local development: TPC-H CSVs are generated on the host into `./data/tpch` and mounted read-only into Spark. This is fast and eliminates S3A complexity for local iteration.
 

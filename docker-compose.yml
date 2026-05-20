@@ -58,11 +58,9 @@ services:
       AWS_SECRET_ACCESS_KEY: minio123
       AWS_REGION: us-east-1
     volumes:
-      - ./conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
       - ./scripts:/opt/spark/scripts
       - ./spark:/opt/spark/app
       - ./data/lakehouse:/opt/lakehouse
       - ./data/tpch:/data/tpch:ro
-      - ./lib:/opt/spark/jars-extra
     entrypoint: []
-    command: ["/bin/sh", "-c", "tail -f /dev/null"]
+    command: [ "/bin/sh", "-c", "tail -f /dev/null" ]
