@@ -1,0 +1,12 @@
+.mc/
+.dbgen/
+lib/
+
+data/lakehouse/
+data/minio/
+data/metastore-db/
+data/tpch/
+
+*.log
+__pycache__/
+.DS_Store
