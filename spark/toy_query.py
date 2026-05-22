@@ -24,28 +24,30 @@ def main() -> int:
 
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
+    from tpch_schemas import LINEITEM_SCHEMA
+
     csv_df = (
         spark.read
         .option("header", "false")
-        .option("inferSchema", "true")
-        .option("sep", ",")
+        .option("sep", "|")
+        .schema(LINEITEM_SCHEMA)
         .csv("s3a://raw/tpch/lineitem.csv")
     )
 
     print("CSV group-by:")
     (
-        csv_df.groupBy("_c10")
+        csv_df.groupBy("l_shipdate")
         .count()
-        .orderBy("_c10")
+        .orderBy("l_shipdate")
         .show(20, truncate=False)
     )
 
     print("Iceberg group-by:")
     (
         spark.table("lakehouse.tpch.lineitem")
-        .groupBy("_c10")
+        .groupBy("l_shipdate")
         .count()
-        .orderBy("_c10")
+        .orderBy("l_shipdate")
         .show(20, truncate=False)
     )
 

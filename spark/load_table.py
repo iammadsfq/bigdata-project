@@ -41,11 +41,13 @@ def main() -> int:
 
     spark.sql("CREATE DATABASE IF NOT EXISTS lakehouse.tpch")
 
+    from tpch_schemas import SCHEMAS
+
     df = (
         spark.read
         .option("header", "false")
-        .option("inferSchema", "true")
-        .option("sep", ",")
+        .option("sep", "|")
+        .schema(SCHEMAS[table])
         .csv(input_path)
     )
 
