@@ -29,7 +29,7 @@ fi
 
 if [[ ! -x "${DBGEN_DIR}/tpch-dbgen/dbgen" ]]; then
   echo "Building dbgen locally..."
-  (cd "${DBGEN_DIR}/tpch-dbgen" && make)
+  (cd "${DBGEN_DIR}/tpch-dbgen" && make CC="gcc -std=gnu17 -fcommon -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration -Wno-error=int-conversion")
 fi
 
 mkdir -p "${OUT_DIR}"
@@ -40,11 +40,11 @@ echo "Generating TPC-H data locally (SF=${SCALE})..."
 cd "${DBGEN_DIR}/tpch-dbgen"
 rm -f ./*.tbl
 
-./dbgen -s "${SCALE}"
+./dbgen -s "${SCALE}" -f
 
 shopt -s nullglob
 for f in ./*.tbl; do
-  sed -e 's/|$//' -e 's/|/,/g' "$f" > "${OUT_DIR}/${f%.tbl}.csv"
+  sed -e 's/|$//' "$f" > "${OUT_DIR}/${f%.tbl}.csv"
 done
 shopt -u nullglob
 
