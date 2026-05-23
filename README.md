@@ -71,3 +71,80 @@ docker compose exec -T spark /opt/spark/bin/spark-submit --packages "org.apache.
 - **Catalog**: Hadoop (file-based) catalog for simplicity. For production, switch to Hive Metastore or Nessie.
 - Local development: TPC-H CSVs are generated on the host into `./data/tpch` and mounted read-only into Spark. This is fast and eliminates S3A complexity for local iteration.
 
+
+README buat datamart:
+## Data Mart
+
+Bagian data mart menggunakan dbt dengan DuckDB sebagai engine analitik lokal.
+
+### Prasyarat
+- Python 3.11
+- Docker dan Docker Compose
+- Data TPC-H CSV sudah tersedia di `data/tpch`
+
+### 1. Buat folder `.dbt`
+Folder `.dbt` dipakai untuk konfigurasi lokal dbt dan sebaiknya tidak di-push ke GitHub.
+
+### 2. Buat `profiles.yml`
+Salin file contoh berikut:
+
+- `profiles.example.yml` -> `.dbt/profiles.yml`
+
+Isi `profiles.yml`:
+
+```yaml
+bigdata_mart:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: /work/dbt/target/bigdata_mart.duckdb
+      schema: tpch_mart
+      threads: 1
+```
+
+### Setup Environment
+Buat virtual environment lalu install dependency:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dbt.txt
+```
+
+### Struktur File Penting
+- dbt/dbt_project.yml untuk konfigurasi project dbt
+- dbt/models/staging/ untuk model staging
+- dbt/models/marts/ untuk data mart final
+- .dbt/profiles.yml untuk koneksi DuckDB
+- dbt/target/bigdata_mart.duckdb untuk hasil output dbt
+
+### Menjalankan dbt
+Jalankan model dan test:
+
+```bash
+docker compose exec dbt dbt debug --profiles-dir /root/.dbt --project-dir /work/dbt
+docker compose exec dbt dbt run --profiles-dir /root/.dbt --project-dir /work/dbt
+docker compose exec dbt dbt test --profiles-dir /root/.dbt --project-dir /work/dbt
+```
+
+### Output
+Hasil eksekusi akan tersimpan di
+- dbt/target/bigdata_mart.duckdb
+- dbt/target/run_results.json
+- dbt/target/manifest.json
+
+### Verifikasi Hasil
+Untuk melihat isi mart:
+
+```bash
+python -c "import duckdb; con = duckdb.connect('dbt/target/bigdata_mart.duckdb'); print(con.execute('select * from tpch_mart.fct_customer_revenue limit 10').fetchdf())"
+```
+
+### Test yang Dijalankan
+- not_null pada c_custkey
+- unique pada c_custkey
+
+Catatan:
+Data mart ini dibangun dari CSV TPC-H yang sudah digenerate sebelumnya.
+Jika ingin reset hasil dbt, hapus folder dbt/target dan dbt/logs.

@@ -1,0 +1,8 @@
+bigdata_mart:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: /work/dbt/target/bigdata_mart.duckdb
+      schema: tpch_mart
+      threads: 1

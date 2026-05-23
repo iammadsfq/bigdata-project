@@ -6,3 +6,10 @@ data/
 *.log
 __pycache__/
 .DS_Store
+
+.venv/
+
+dbt/target/
+dbt/logs/
+
+.dbt/

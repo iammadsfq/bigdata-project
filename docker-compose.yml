@@ -64,3 +64,13 @@ services:
       - ./data/tpch:/data/tpch:ro
     entrypoint: []
     command: [ "/bin/sh", "-c", "tail -f /dev/null" ]
+
+  dbt:
+    build:
+      context: .
+      dockerfile: Dockerfile.dbt
+    volumes:
+      - ./:/work
+      - ./.dbt:/root/.dbt
+    working_dir: /work/dbt
+    command: ["sleep", "infinity"]

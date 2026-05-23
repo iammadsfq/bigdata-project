@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: tpch
+    schema: tpch
+    tables:
+      - name: customer
+      - name: orders
+      - name: lineitem
+      - name: nation
