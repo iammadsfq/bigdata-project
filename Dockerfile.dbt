@@ -1,0 +1,13 @@
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+     git \
+     procps \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work
+COPY requirements-dbt.txt /work/
+RUN pip install --no-cache-dir -r requirements-dbt.txt
+
+CMD ["sleep", "infinity"]
