@@ -37,13 +37,13 @@ services:
       AWS_ACCESS_KEY_ID: minio
       AWS_SECRET_ACCESS_KEY: minio123
       AWS_REGION: us-east-1
+      RAW_DATA_PATH: s3a://raw/tpch
     volumes:
       - ./scripts:/opt/spark/scripts
       - ./spark:/opt/spark/app
       - ./conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
       - ./conf/log4j2.properties:/opt/spark/conf/log4j2.properties
       - ./data/lakehouse:/opt/lakehouse
-      - ./data/tpch:/data/tpch:ro
     ports:
       - "10000:10000"
       - "4040:4040"

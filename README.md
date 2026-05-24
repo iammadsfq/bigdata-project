@@ -33,13 +33,19 @@ bash scripts/generate_tpch.sh 1
 bash scripts/generate_tpch.sh 10
 ```
 
-### 3. Load CSV ke Iceberg Lakehouse
-Jalankan script loading untuk memindahkan data CSV local ke tabel Iceberg di MinIO:
+### 3. Upload CSV ke MinIO raw bucket
+Unggah data CSV hasil generate ke MinIO raw bucket:
+```bash
+bash scripts/minio/upload.sh
+```
+
+### 4. Load CSV ke Iceberg Lakehouse
+Jalankan script loading untuk memindahkan data CSV di MinIO raw bucket ke tabel Iceberg:
 ```bash
 bash scripts/load_to_iceberg.sh
 ```
 
-### 4. Eksekusi Transformasi & Pengujian dbt
+### 5. Eksekusi Transformasi & Pengujian dbt
 Jalankan model transformasi dan lakukan pengujian kualitas data mart:
 ```bash
 # Transformasi ke Data Mart

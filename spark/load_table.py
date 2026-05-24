@@ -13,8 +13,8 @@ def main() -> int:
         return 2
 
     table = sys.argv[1]
-    local_path = f"/data/tpch/{table}.csv"
-    input_path = local_path if os.path.exists(local_path) else f"s3a://raw/tpch/{table}.csv"
+    raw_path = os.environ.get("RAW_DATA_PATH", "s3a://raw/tpch")
+    input_path = f"{raw_path}/{table}.csv"
     target_table = f"lakehouse.tpch.{table}"
 
     spark = get_spark(f"Load {table}")

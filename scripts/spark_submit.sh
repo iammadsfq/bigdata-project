@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Wrapper to invoke spark-submit inside the Spark container with the standard
-# package set (Iceberg + Hadoop AWS + AWS SDK).
+# Wrapper to invoke spark-submit inside the Spark container.
 #
 # Usage:
 #   ./scripts/spark_submit.sh <python_file_in_/opt/spark/app> [args...]

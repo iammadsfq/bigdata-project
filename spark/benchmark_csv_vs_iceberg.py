@@ -10,6 +10,7 @@ run, so JIT compilation and class loading don't skew the comparison.
 
 from __future__ import annotations
 
+import os
 import time
 
 from pyspark.sql import DataFrame
@@ -18,8 +19,8 @@ from pyspark.sql import functions as F
 from session import get_spark
 from tpch_schemas import LINEITEM_SCHEMA
 
-
-CSV_PATH = "s3a://raw/tpch/lineitem.csv"
+RAW_DATA_PATH = os.environ.get("RAW_DATA_PATH", "s3a://raw/tpch")
+CSV_PATH = f"{RAW_DATA_PATH}/lineitem.csv"
 ICEBERG_TABLE = "lakehouse.tpch.lineitem"
 
 

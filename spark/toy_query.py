@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from session import get_spark
 from tpch_schemas import LINEITEM_SCHEMA
 
@@ -7,12 +9,13 @@ from tpch_schemas import LINEITEM_SCHEMA
 def main() -> int:
     spark = get_spark("Toy Query")
 
+    raw_path = os.environ.get("RAW_DATA_PATH", "s3a://raw/tpch")
     csv_df = (
         spark.read
         .option("header", "false")
         .option("sep", "|")
         .schema(LINEITEM_SCHEMA)
-        .csv("s3a://raw/tpch/lineitem.csv")
+        .csv(f"{raw_path}/lineitem.csv")
     )
 
     print("CSV group-by:")
