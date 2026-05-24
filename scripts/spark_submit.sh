@@ -17,8 +17,5 @@ if [[ $# -lt 1 ]]; then
 fi
 
 APP_DIR="/opt/spark/app"
-PACKAGES="org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.0"
-
 docker compose exec -T spark /opt/spark/bin/spark-submit \
-  --packages "${PACKAGES}" \
   "${APP_DIR}/$1" "${@:2}"

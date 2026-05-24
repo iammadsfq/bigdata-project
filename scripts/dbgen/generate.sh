@@ -42,6 +42,8 @@ rm -f ./*.tbl
 
 ./dbgen -s "${SCALE}" -f
 
+chmod 644 ./*.tbl 2>/dev/null || true
+
 shopt -s nullglob
 for f in ./*.tbl; do
   sed -e 's/|$//' "$f" > "${OUT_DIR}/${f%.tbl}.csv"

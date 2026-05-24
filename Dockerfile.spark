@@ -1,0 +1,16 @@
+FROM tabulario/spark-iceberg:3.5.5_1.8.1
+
+# Bake required jars into the Spark image so the Thrift server has them on the
+# system classpath at JVM start. This avoids runtime classloader issues.
+USER root
+RUN set -eux \
+    && mkdir -p /opt/spark/jars \
+    && cd /opt/spark/jars \
+    && curl -fSL -o iceberg-aws-bundle-1.8.1.jar https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-aws-bundle/1.8.1/iceberg-aws-bundle-1.8.1.jar \
+    && curl -fSL -o iceberg-spark-runtime-3.5_2.12-1.8.1.jar https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/1.8.1/iceberg-spark-runtime-3.5_2.12-1.8.1.jar \
+    && curl -fSL -o hadoop-aws-3.3.4.jar https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar \
+    && curl -fSL -o aws-java-sdk-bundle-1.12.262.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar \
+    && curl -fSL -o wildfly-openssl-1.0.7.Final.jar https://repo1.maven.org/maven2/org/wildfly/openssl/wildfly-openssl/1.0.7.Final/wildfly-openssl-1.0.7.Final.jar \
+    && chmod 644 /opt/spark/jars/*.jar
+
+USER root

@@ -27,32 +27,13 @@ services:
       exit 0;
       "
 
-  metastore-db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: metastore
-      POSTGRES_PASSWORD: metastore
-      POSTGRES_DB: metastore
-    volumes:
-      - ./data/metastore-db:/var/lib/postgresql/data
-
-  hive-metastore:
-    image: apache/hive:4.2.0
-    depends_on:
-      - metastore-db
-    environment:
-      SERVICE_NAME: metastore
-    volumes:
-      - ./conf/hive-site.xml:/opt/hive/conf/hive-site.xml
-      - ./data/lakehouse:/opt/lakehouse
-    ports:
-      - "9083:9083"
 
   spark:
-    image: tabulario/spark-iceberg:3.5.5_1.8.1
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     depends_on:
       - minio
-      - hive-metastore
     environment:
       AWS_ACCESS_KEY_ID: minio
       AWS_SECRET_ACCESS_KEY: minio123
@@ -60,10 +41,18 @@ services:
     volumes:
       - ./scripts:/opt/spark/scripts
       - ./spark:/opt/spark/app
+      - ./conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./conf/log4j2.properties:/opt/spark/conf/log4j2.properties
       - ./data/lakehouse:/opt/lakehouse
       - ./data/tpch:/data/tpch:ro
+    ports:
+      - "10000:10000"
     entrypoint: []
-    command: [ "/bin/sh", "-c", "tail -f /dev/null" ]
+    command: >
+      /bin/sh -c "
+      /opt/spark/sbin/start-thriftserver.sh
+      && tail -f /dev/null
+      "
 
   dbt:
     build:
@@ -73,4 +62,3 @@ services:
       - ./:/work
       - ./.dbt:/root/.dbt
     working_dir: /work/dbt
-    command: ["sleep", "infinity"]

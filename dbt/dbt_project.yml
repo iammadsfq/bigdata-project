@@ -10,6 +10,6 @@ macro-paths: ["macros"]
 models:
   bigdata_mart:
     staging:
-      +materialized: view
+      +materialized: table
     marts:
       +materialized: table

@@ -1,5 +1,4 @@
 dbt-core==1.8.7
-dbt-duckdb==1.8.0
-duckdb==1.2.2
+dbt-spark[PyHive]==1.8.0
 numpy==2.4.6
 pandas==3.0.3
