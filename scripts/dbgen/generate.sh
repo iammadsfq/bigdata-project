@@ -38,15 +38,24 @@ rm -f "${OUT_DIR}"/*.tbl "${OUT_DIR}"/*.csv 2>/dev/null || true
 echo "Generating TPC-H data locally (SF=${SCALE})..."
 
 cd "${DBGEN_DIR}/tpch-dbgen"
-rm -f ./*.tbl
+rm -f ./*.tbl ./*.tbl.*
 
-./dbgen -s "${SCALE}" -f
+# Detect CPU cores for parallel execution
+NUM_CORES=$(nproc 2>/dev/null || echo 4)
+echo "Using ${NUM_CORES} parallel processes for generation..."
 
-chmod 644 ./*.tbl 2>/dev/null || true
+for i in $(seq 1 "${NUM_CORES}"); do
+  ./dbgen -s "${SCALE}" -C "${NUM_CORES}" -S "$i" -f &
+done
+wait
+
+chmod 644 ./*.tbl ./*.tbl.* 2>/dev/null || true
 
 shopt -s nullglob
-for f in ./*.tbl; do
-  sed -e 's/|$//' "$f" > "${OUT_DIR}/${f%.tbl}.csv"
+for f in ./*.tbl*; do
+  basename="${f##*/}"
+  table="${basename%%.tbl*}"
+  sed -e 's/|$//' "$f" >> "${OUT_DIR}/${table}.csv"
 done
 shopt -u nullglob
 
