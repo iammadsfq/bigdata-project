@@ -1,150 +1,64 @@
-# Big Data Project (Infra + Lakehouse Load)
+# Proyek Big Data: TPC-H Lakehouse & Data Mart (Spark + Iceberg + MinIO + dbt)
 
-This repo contains the dockerized infrastructure and scripts for:
+Arsitektur Big Data end-to-end yang mengimplementasikan **Data Lakehouse** (Apache Iceberg dengan format file Parquet pada Object Storage MinIO), **Data Orchestration** (dbt-spark), dan **Data Processing** (Apache Spark).
 
-- generating TPC-H CSV data
-- loading CSV into an Iceberg lakehouse on MinIO
-- producing a data mart via dbt (later step)
+## Arsitektur Alur Data
+1. **Generate**: Data TPC-H berupa CSV di-generate via script DBGEN.
+2. **Load**: Data CSV di-load ke Data Lakehouse (tabel Apache Iceberg di bucket MinIO `lakehouse/warehouse`) via PySpark.
+3. **Transform**: dbt melakukan transformasi data dari Iceberg Lakehouse menjadi Data Mart (`tpch_mart.fct_customer_revenue`) via Spark Thrift Server.
+4. **Test**: dbt test memverifikasi kualitas data mart (unique & not-null constraints).
 
-## Layout
+---
 
-- docker-compose.yml: MinIO + Hive Metastore + Postgres (metastore DB)
-- conf/: Hive and Iceberg-related configuration
-- scripts/: data generation and upload scripts
+## Quick Start
 
-## Services
-
-- MinIO (S3-compatible storage): http://localhost:9000
-  - Console: http://localhost:9001
-  - Default credentials: minio / minio123
-  - Buckets created on startup: lakehouse, raw, warehouse
-- Hive Metastore (Thrift): thrift://localhost:9083
-
-## Quick start
-
-This project is intended to run from WSL2 or another Linux shell with Docker and Docker Compose available. The copied `.git/` directory is present, but this checkout does not contain any commits yet, so if you want real git history you should restore it from the remote or re-clone the repository later. For now, the local repo is still fine for running the stack.
-
-1. Start the services
-
+### 1. Inisialisasi Environment & Services
+Jalankan stack infrastruktur Docker (MinIO, Spark, dbt):
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-2. Verify MinIO UI at http://localhost:9001
-
-3. Generate TPC-H data (CSV)
-
+### 2. Generate Data TPC-H (CSV)
+Generate TPC-H dataset dengan DBGEN (default Scale Factor = 1):
 ```bash
-# Default SF=1
-./scripts/generate_tpch.sh
+# Untuk SF 1 (~1GB)
+bash scripts/generate_tpch.sh 1
 
-# Example: SF=10 (~10GB)
-./scripts/generate_tpch.sh 10
+# Untuk SF 10 (~10GB)
+bash scripts/generate_tpch.sh 10
 ```
 
-4. Upload CSV to MinIO (raw bucket)
-
+### 3. Load CSV ke Iceberg Lakehouse
+Jalankan pipeline loading untuk memindahkan data CSV local ke tabel Iceberg di MinIO:
 ```bash
-./scripts/minio/upload.sh
+bash scripts/load_to_iceberg.sh
 ```
 
-5. Load CSV into Iceberg tables (PySpark)
-
+### 4. Eksekusi Transformasi & Pengujian dbt
+Jalankan model transformasi dan lakukan pengujian kualitas data mart:
 ```bash
-./scripts/load_to_iceberg.sh
+# Transformasi ke Data Mart
+docker compose exec dbt dbt run --profiles-dir . --project-dir .
+
+# Verifikasi Data Quality Tests
+docker compose exec dbt dbt test --profiles-dir . --project-dir .
 ```
 
-6. Run the toy Spark query (CSV vs Iceberg)
+---
 
+## Struktur Repositori & File Penting
+- `Dockerfile.spark`: Image Spark custom yang mem-bake AWS S3A & Iceberg connectors langsung ke system classpath JVM.
+- `Dockerfile.dbt`: Image dbt custom dengan pre-installed `dbt-spark[PyHive]` adapter.
+- `conf/spark-defaults.conf`: Konfigurasi global catalog Iceberg (`lakehouse`) dan endpoint MinIO.
+- `conf/log4j2.properties`: Konfigurasi filter log untuk mereduksi log verbosity Spark JVM.
+- `spark/session.py`: Wrapper SparkSession yang dinamis untuk standalone PySpark scripts.
+- `dbt/dbt_project.yml`: Konfigurasi project dbt (staging dimaterialisasi sebagai `table` agar kompatibel dengan Iceberg Hadoop Catalog).
+- `dbt/profiles.yml`: Konfigurasi profile koneksi dbt ke Spark Thrift Server (port `10000`).
+
+---
+
+## Verifikasi Mandiri (Optional)
+Untuk mengecek jumlah baris tabel Iceberg langsung di catalog `lakehouse`:
 ```bash
-docker compose exec -T spark /opt/spark/bin/spark-submit --packages "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.0" /opt/spark/app/toy_query.py
+bash scripts/spark_submit.sh verify_tables.py
 ```
-
-## Iceberg catalog configuration
-
-- Spark uses a **hadoop (file-based) catalog** for local dev: metadata stored at `/opt/lakehouse/warehouse` (mounted from host).
-- Iceberg and S3A packages are downloaded at PySpark session init time via `spark.jars.packages` (see `spark/load_table.py` and `spark/toy_query.py`). No mounts or `spark-defaults.conf` required.
-
-## Architecture notes & developer guidance
-
-- **Jar initialization (recommended)**: Iceberg and S3A packages are supplied explicitly using `--packages` during `spark-submit`. This is required so dependencies are correctly resolved by the JVM ClassLoader early enough before Iceberg tries to load `HadoopFileIO` and S3A capabilities, avoiding S3A instantiation errors and ensuring portablility. No static mounted jars or `spark-defaults.conf` tweaks required.
-- **Catalog**: Hadoop (file-based) catalog for simplicity. For production, switch to Hive Metastore or Nessie.
-- Local development: TPC-H CSVs are generated on the host into `./data/tpch` and mounted read-only into Spark. This is fast and eliminates S3A complexity for local iteration.
-
-
-README buat datamart:
-## Data Mart
-
-Bagian data mart menggunakan dbt dengan DuckDB sebagai engine analitik lokal.
-
-### Prasyarat
-- Python 3.11
-- Docker dan Docker Compose
-- Data TPC-H CSV sudah tersedia di `data/tpch`
-
-### 1. Buat folder `.dbt`
-Folder `.dbt` dipakai untuk konfigurasi lokal dbt dan sebaiknya tidak di-push ke GitHub.
-
-### 2. Buat `profiles.yml`
-Salin file contoh berikut:
-
-- `profiles.example.yml` -> `.dbt/profiles.yml`
-
-Isi `profiles.yml`:
-
-```yaml
-bigdata_mart:
-  target: dev
-  outputs:
-    dev:
-      type: duckdb
-      path: /work/dbt/target/bigdata_mart.duckdb
-      schema: tpch_mart
-      threads: 1
-```
-
-### Setup Environment
-Buat virtual environment lalu install dependency:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dbt.txt
-```
-
-### Struktur File Penting
-- dbt/dbt_project.yml untuk konfigurasi project dbt
-- dbt/models/staging/ untuk model staging
-- dbt/models/marts/ untuk data mart final
-- .dbt/profiles.yml untuk koneksi DuckDB
-- dbt/target/bigdata_mart.duckdb untuk hasil output dbt
-
-### Menjalankan dbt
-Jalankan model dan test:
-
-```bash
-docker compose exec dbt dbt debug --profiles-dir /root/.dbt --project-dir /work/dbt
-docker compose exec dbt dbt run --profiles-dir /root/.dbt --project-dir /work/dbt
-docker compose exec dbt dbt test --profiles-dir /root/.dbt --project-dir /work/dbt
-```
-
-### Output
-Hasil eksekusi akan tersimpan di
-- dbt/target/bigdata_mart.duckdb
-- dbt/target/run_results.json
-- dbt/target/manifest.json
-
-### Verifikasi Hasil
-Untuk melihat isi mart:
-
-```bash
-python -c "import duckdb; con = duckdb.connect('dbt/target/bigdata_mart.duckdb'); print(con.execute('select * from tpch_mart.fct_customer_revenue limit 10').fetchdf())"
-```
-
-### Test yang Dijalankan
-- not_null pada c_custkey
-- unique pada c_custkey
-
-Catatan:
-Data mart ini dibangun dari CSV TPC-H yang sudah digenerate sebelumnya.
-Jika ingin reset hasil dbt, hapus folder dbt/target dan dbt/logs.
