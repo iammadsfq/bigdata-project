@@ -76,6 +76,12 @@ Untuk mengecek jumlah baris tabel Iceberg langsung di catalog `lakehouse`:
 bash scripts/spark_submit.sh verify_tables.py
 ```
 
+## Reset Environment
+Jika Anda ingin menghapus seluruh data (MinIO & Iceberg) dan memulai ulang stack dari awal (*clean slate*):
+```bash
+bash scripts/reset_clean.sh
+```
+
 ## Anggota Tim
 | NIM | Nama |
 | :--- | :--- |
