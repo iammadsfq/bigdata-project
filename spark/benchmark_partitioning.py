@@ -23,22 +23,36 @@ PARTITIONED_TABLE = "lakehouse.tpch.lineitem_partitioned"
 
 
 def ensure_partitioned_table(spark) -> None:
-    """Create lineitem_partitioned if it doesn't exist."""
+    """Create lineitem_partitioned if it doesn't exist or is stale."""
     tables = [r.tableName for r in spark.sql("SHOW TABLES IN lakehouse.tpch").collect()]
+    
+    recreate = False
     if "lineitem_partitioned" in tables:
-        print(f"  {PARTITIONED_TABLE} already exists, skipping create.")
-        return
+        print(f"  {PARTITIONED_TABLE} already exists. Checking for staleness...")
+        unpartitioned_count = spark.table("lakehouse.tpch.lineitem").count()
+        partitioned_count = spark.table(PARTITIONED_TABLE).count()
+        if unpartitioned_count != partitioned_count:
+            print(f"  WARNING: Row count mismatch (unpartitioned: {unpartitioned_count}, partitioned: {partitioned_count}). Table is stale!")
+            print(f"  Dropping stale {PARTITIONED_TABLE}...")
+            spark.sql(f"DROP TABLE IF EXISTS {PARTITIONED_TABLE}")
+            recreate = True
+        else:
+            print(f"  {PARTITIONED_TABLE} is up-to-date (both have {unpartitioned_count} rows), skipping create.")
+            return
+    else:
+        recreate = True
 
-    print(f"  Creating {PARTITIONED_TABLE} partitioned by years(l_shipdate)...")
-    start = time.perf_counter()
-    spark.sql(f"""
-        CREATE TABLE {PARTITIONED_TABLE}
-        USING iceberg
-        PARTITIONED BY (years(l_shipdate))
-        AS SELECT * FROM lakehouse.tpch.lineitem
-    """)
-    elapsed = time.perf_counter() - start
-    print(f"  Done in {elapsed:.1f}s.")
+    if recreate:
+        print(f"  Creating {PARTITIONED_TABLE} partitioned by years(l_shipdate)...")
+        start = time.perf_counter()
+        spark.sql(f"""
+            CREATE TABLE {PARTITIONED_TABLE}
+            USING iceberg
+            PARTITIONED BY (years(l_shipdate))
+            AS SELECT * FROM lakehouse.tpch.lineitem
+        """)
+        elapsed = time.perf_counter() - start
+        print(f"  Done in {elapsed:.1f}s.")
 
 
 def time_action(df: DataFrame) -> float:
@@ -58,8 +72,15 @@ def main() -> int:
     partitioned   = spark.table(PARTITIONED_TABLE)
 
     print("\n=== Sanity: same row counts ===")
-    print(f"  unpartitioned: {unpartitioned.count():>10}")
-    print(f"  partitioned:   {partitioned.count():>10}")
+    unp_count = unpartitioned.count()
+    par_count = partitioned.count()
+    print(f"  unpartitioned: {unp_count:>10}")
+    print(f"  partitioned:   {par_count:>10}")
+    if unp_count != par_count:
+        raise ValueError(
+            f"Sanity check failed: Row count mismatch! Unpartitioned table has {unp_count} rows, "
+            f"but partitioned table has {par_count} rows."
+        )
 
     def build_filter_query(df: DataFrame):
         return (

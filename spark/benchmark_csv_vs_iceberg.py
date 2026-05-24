@@ -65,6 +65,18 @@ def main() -> int:
     )
     iceberg_df = spark.table(ICEBERG_TABLE)
 
+    print("\n=== Sanity: same row counts ===")
+    csv_count = csv_df.count()
+    iceberg_count = iceberg_df.count()
+    print(f"  CSV (raw):      {csv_count:>10}")
+    print(f"  Iceberg (lake): {iceberg_count:>10}")
+    
+    if csv_count != iceberg_count:
+        raise ValueError(
+            f"Sanity check failed: Row count mismatch! CSV has {csv_count} rows, Iceberg has {iceberg_count} rows. "
+            "Please ensure you ran 'scripts/load_to_iceberg.sh' after uploading new raw CSV data."
+        )
+
     print("\n=== Benchmark: CSV (raw) vs Iceberg (lakehouse) on lineitem ===\n")
 
     run_benchmark(
