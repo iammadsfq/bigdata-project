@@ -86,9 +86,17 @@ Setelah infrastruktur berjalan, Anda dapat mengakses beberapa web interface beri
 * **dbt Docs**: [http://localhost:8080](http://localhost:8080) - Dokumentasi skema dan visualisasi data lineage graph dari data mart.
 
 ## Verifikasi
-Untuk mengecek jumlah baris tabel Iceberg langsung di catalog `lakehouse`:
+
+### 1. Verifikasi Ingestion Iceberg
+Untuk mengecek jumlah baris tabel Iceberg langsung di catalog `lakehouse` (dibandingkan dengan baris expected SF 1):
 ```bash
 bash scripts/spark_submit.sh verify_tables.py
+```
+
+### 2. Query dbt Data Mart
+Untuk melakukan query langsung dan melihat preview hasil data mart dari dbt (`lakehouse.tpch_mart.fct_customer_revenue`):
+```bash
+bash scripts/spark_submit.sh query_data_mart.py
 ```
 
 ## Reset Environment
