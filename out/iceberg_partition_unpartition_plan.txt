@@ -1,15 +1,18 @@
 === Setup ===
-26/05/23 01:11:34 WARN MetricsConfig: Cannot locate configuration: tried hadoop-metrics2-s3a-file-system.properties,hadoop-metrics2.properties
-  lakehouse.tpch.lineitem_partitioned already exists, skipping create.
+  lakehouse.tpch.lineitem_partitioned already exists. Checking for staleness...
+  WARNING: Row count mismatch (unpartitioned: 59986052, partitioned: 6001215). Table is stale!
+  Dropping stale lakehouse.tpch.lineitem_partitioned...
+  Creating lakehouse.tpch.lineitem_partitioned partitioned by years(l_shipdate)...
+  Done in 222.2s.
 
 === Sanity: same row counts ===
-  unpartitioned:    6001215
-  partitioned:      6001215
+  unpartitioned:   59986052
+  partitioned:     59986052
 
 === Benchmark: filter to 1 year of data ===
-  Unpartitioned     0.61s
-  Partitioned       0.19s
-  Speedup            3.1x
+  Unpartitioned     2.10s
+  Partitioned       0.14s
+  Speedup           15.0x
 
 === Iceberg snapshot files scanned (1996 filter) ===
   Unpartitioned plan:
@@ -24,37 +27,37 @@ AdaptiveSparkPlan (7)
 
 
 (1) BatchScan lakehouse.tpch.lineitem
-Output [2]: [l_extendedprice#21, l_shipdate#26]
+Output [2]: [l_extendedprice#186, l_shipdate#191]
 lakehouse.tpch.lineitem (branch=null) [filters=l_shipdate IS NOT NULL, l_shipdate >= 9496, l_shipdate < 9862, groupedBy=]
 
 (2) Filter
-Input [2]: [l_extendedprice#21, l_shipdate#26]
-Condition : ((isnotnull(l_shipdate#26) AND (l_shipdate#26 >= 1996-01-01)) AND (l_shipdate#26 < 1997-01-01))
+Input [2]: [l_extendedprice#186, l_shipdate#191]
+Condition : ((isnotnull(l_shipdate#191) AND (l_shipdate#191 >= 1996-01-01)) AND (l_shipdate#191 < 1997-01-01))
 
 (3) Project
-Output [1]: [l_extendedprice#21]
-Input [2]: [l_extendedprice#21, l_shipdate#26]
+Output [1]: [l_extendedprice#186]
+Input [2]: [l_extendedprice#186, l_shipdate#191]
 
 (4) HashAggregate
-Input [1]: [l_extendedprice#21]
+Input [1]: [l_extendedprice#186]
 Keys: []
-Functions [2]: [partial_sum(l_extendedprice#21), partial_count(1)]
-Aggregate Attributes [3]: [sum#280, isEmpty#281, count#282L]
-Results [3]: [sum#283, isEmpty#284, count#285L]
+Functions [2]: [partial_sum(l_extendedprice#186), partial_count(1)]
+Aggregate Attributes [3]: [sum#445, isEmpty#446, count#447L]
+Results [3]: [sum#448, isEmpty#449, count#450L]
 
 (5) Exchange
-Input [3]: [sum#283, isEmpty#284, count#285L]
-Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=301]
+Input [3]: [sum#448, isEmpty#449, count#450L]
+Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=398]
 
 (6) HashAggregate
-Input [3]: [sum#283, isEmpty#284, count#285L]
+Input [3]: [sum#448, isEmpty#449, count#450L]
 Keys: []
-Functions [2]: [sum(l_extendedprice#21), count(1)]
-Aggregate Attributes [2]: [sum(l_extendedprice#21)#256, count(1)#258L]
-Results [2]: [sum(l_extendedprice#21)#256 AS revenue#257, count(1)#258L AS n_rows#259L]
+Functions [2]: [sum(l_extendedprice#186), count(1)]
+Aggregate Attributes [2]: [sum(l_extendedprice#186)#421, count(1)#423L]
+Results [2]: [sum(l_extendedprice#186)#421 AS revenue#422, count(1)#423L AS n_rows#424L]
 
 (7) AdaptiveSparkPlan
-Output [2]: [revenue#257, n_rows#259L]
+Output [2]: [revenue#422, n_rows#424L]
 Arguments: isFinalPlan=false
 
 
@@ -70,31 +73,31 @@ AdaptiveSparkPlan (6)
 
 
 (1) BatchScan lakehouse.tpch.lineitem_partitioned
-Output [2]: [l_extendedprice#53, l_shipdate#58]
+Output [2]: [l_extendedprice#218, l_shipdate#223]
 lakehouse.tpch.lineitem_partitioned (branch=null) [filters=l_shipdate IS NOT NULL, l_shipdate >= 9496, l_shipdate < 9862, groupedBy=]
 
 (2) Project
-Output [1]: [l_extendedprice#53]
-Input [2]: [l_extendedprice#53, l_shipdate#58]
+Output [1]: [l_extendedprice#218]
+Input [2]: [l_extendedprice#218, l_shipdate#223]
 
 (3) HashAggregate
-Input [1]: [l_extendedprice#53]
+Input [1]: [l_extendedprice#218]
 Keys: []
-Functions [2]: [partial_sum(l_extendedprice#53), partial_count(1)]
-Aggregate Attributes [3]: [sum#310, isEmpty#311, count#312L]
-Results [3]: [sum#313, isEmpty#314, count#315L]
+Functions [2]: [partial_sum(l_extendedprice#218), partial_count(1)]
+Aggregate Attributes [3]: [sum#475, isEmpty#476, count#477L]
+Results [3]: [sum#478, isEmpty#479, count#480L]
 
 (4) Exchange
-Input [3]: [sum#313, isEmpty#314, count#315L]
-Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=316]
+Input [3]: [sum#478, isEmpty#479, count#480L]
+Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=413]
 
 (5) HashAggregate
-Input [3]: [sum#313, isEmpty#314, count#315L]
+Input [3]: [sum#478, isEmpty#479, count#480L]
 Keys: []
-Functions [2]: [sum(l_extendedprice#53), count(1)]
-Aggregate Attributes [2]: [sum(l_extendedprice#53)#286, count(1)#288L]
-Results [2]: [sum(l_extendedprice#53)#286 AS revenue#287, count(1)#288L AS n_rows#289L]
+Functions [2]: [sum(l_extendedprice#218), count(1)]
+Aggregate Attributes [2]: [sum(l_extendedprice#218)#451, count(1)#453L]
+Results [2]: [sum(l_extendedprice#218)#451 AS revenue#452, count(1)#453L AS n_rows#454L]
 
 (6) AdaptiveSparkPlan
-Output [2]: [revenue#287, n_rows#289L]
+Output [2]: [revenue#452, n_rows#454L]
 Arguments: isFinalPlan=false
