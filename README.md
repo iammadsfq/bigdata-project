@@ -55,6 +55,21 @@ docker compose exec dbt dbt run --profiles-dir . --project-dir .
 docker compose exec dbt dbt test --profiles-dir . --project-dir .
 ```
 
+## Benchmarking
+Kami menyediakan dua script benchmarking untuk membandingkan performa pemrosesan query:
+
+1. **CSV vs Iceberg (Format Kolom)**:
+   Perbandingan query langsung ke raw CSV di MinIO vs Iceberg (Parquet) di MinIO:
+   ```bash
+   ./scripts/spark_submit.sh benchmark_csv_vs_iceberg.py
+   ```
+
+2. **Unpartitioned vs Partitioned (Partition Pruning)**:
+   Perbandingan query filter pada tabel Iceberg biasa vs tabel Iceberg yang dipartisi berdasarkan tahun (`years(l_shipdate)`):
+   ```bash
+   ./scripts/spark_submit.sh benchmark_partitioning.py
+   ```
+
 ## Struktur Repositori & File Penting
 - `Dockerfile.spark`: Custom Spark image yang mem-bake AWS S3A & Iceberg connectors langsung ke system classpath JVM.
 - `Dockerfile.dbt`: Custom dbt image dengan pre-installed `dbt-spark[PyHive]` adapter.
