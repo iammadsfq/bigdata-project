@@ -5,7 +5,6 @@ config-version: 2
 profile: bigdata_mart
 
 model-paths: ["models"]
-macro-paths: ["macros"]
 
 models:
   bigdata_mart:

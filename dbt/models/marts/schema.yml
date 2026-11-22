@@ -4,6 +4,6 @@ models:
   - name: fct_customer_revenue
     columns:
       - name: c_custkey
-        tests:
+        data_tests:
           - not_null
           - unique
