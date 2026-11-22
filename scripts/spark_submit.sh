@@ -4,14 +4,15 @@ set -euo pipefail
 # Wrapper to invoke spark-submit inside the Spark container.
 #
 # Usage:
-#   ./scripts/spark_submit.sh <python_file_in_/opt/spark/app> [args...]
+#   ./scripts/spark_submit.sh <relative_path_in_spark/> [args...]
 #
-# Example:
-#   ./scripts/spark_submit.sh verify_tables.py
-#   ./scripts/spark_submit.sh load_table.py customer
+# Examples:
+#   ./scripts/spark_submit.sh ingest/verify_tables.py
+#   ./scripts/spark_submit.sh queries/query_data_mart.py
+#   ./scripts/spark_submit.sh benchmarks/benchmark_csv_vs_iceberg.py
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <python_file> [args...]"
+  echo "Usage: $0 <relative_path_in_spark/> [args...]"
   exit 2
 fi
 

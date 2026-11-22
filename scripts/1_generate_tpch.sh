@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCALE="${1:-1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUT_DIR="${2:-${REPO_ROOT}/data/tpch}"
 DBGEN_DIR="${DBGEN_DIR:-${REPO_ROOT}/.dbgen}"
 CLEAN_DBGEN="${CLEAN_DBGEN:-0}"
@@ -40,7 +40,6 @@ echo "Generating TPC-H data locally (SF=${SCALE})..."
 cd "${DBGEN_DIR}/tpch-dbgen"
 rm -f ./*.tbl ./*.tbl.*
 
-# Detect CPU cores for parallel execution
 NUM_CORES=$(nproc 2>/dev/null || echo 4)
 echo "Using ${NUM_CORES} parallel processes for generation..."
 
