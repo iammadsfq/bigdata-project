@@ -74,7 +74,7 @@ def main() -> int:
     if csv_count != iceberg_count:
         raise ValueError(
             f"Sanity check failed: Row count mismatch! CSV has {csv_count} rows, Iceberg has {iceberg_count} rows. "
-            "Please ensure you ran 'scripts/load_to_iceberg.sh' after uploading new raw CSV data."
+            "Please ensure you ran 'scripts/3_load_iceberg.sh' after uploading new raw CSV data."
         )
 
     print("\n=== Benchmark: CSV (raw) vs Iceberg (lakehouse) on lineitem ===\n")

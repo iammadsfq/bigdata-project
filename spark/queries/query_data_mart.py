@@ -19,7 +19,7 @@ def main() -> int:
     except Exception as e:
         print(f"\n  ERROR: Could not load table '{mart_table}': {e}")
         print("  Please make sure you run the dbt pipeline first to build the mart:")
-        print("    docker compose exec dbt dbt run --profiles-dir . --project-dir .")
+        print("    docker compose exec dbt dbt run")
         spark.stop()
         return 1
 
