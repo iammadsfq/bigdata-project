@@ -33,7 +33,12 @@ if [[ ! -x "${DBGEN_DIR}/tpch-dbgen/dbgen" ]]; then
 fi
 
 mkdir -p "${OUT_DIR}"
-rm -f "${OUT_DIR}"/*.tbl "${OUT_DIR}"/*.csv 2>/dev/null || true
+if [[ ! -w "${OUT_DIR}" ]]; then
+  echo "Output directory is not writable: ${OUT_DIR}"
+  echo "Fix ownership with: sudo chown -R \$(id -u):\$(id -g) \"${OUT_DIR}\""
+  exit 1
+fi
+rm -f "${OUT_DIR}"/*.tbl "${OUT_DIR}"/*.csv
 
 echo "Generating TPC-H data locally (SF=${SCALE})..."
 
