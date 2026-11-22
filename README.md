@@ -1,109 +1,116 @@
-# Proyek Big Data: TPC-H Lakehouse & Data Mart (Spark + Iceberg + MinIO + dbt)
+# Proyek Big Data: TPC-H Lakehouse & Data Mart
 
-Arsitektur Big Data end-to-end yang mengimplementasikan **Data Lakehouse** (Apache Iceberg dengan format file Parquet pada Object Storage MinIO), **Data Orchestration** (dbt-spark), dan **Data Processing** (Apache Spark).
+Pipeline Big Data end-to-end berbasis **Apache Spark + Apache Iceberg + MinIO + dbt**:
 
-## Arsitektur Alur Data
-1. **Generate**: Data TPC-H [(link)](https://www.tpc.org/tpch/) berupa CSV yang di-generate via script DBGEN.
-2. **Load**: Data CSV di-load ke Data Lakehouse (tabel Apache Iceberg di bucket MinIO `lakehouse/warehouse`) via PySpark.
-3. **Transform**: dbt melakukan transformasi data dari Iceberg Lakehouse menjadi Data Mart (`tpch_mart.fct_customer_revenue`) via Spark Thrift Server.
-4. **Test**: dbt test memverifikasi kualitas data mart (unique & not-null constraints).
+```
+TPC-H DBGEN (CSV) ──▶ MinIO (s3a://raw/tpch) ──▶ Spark + Iceberg (s3a://lakehouse/warehouse) ──▶ dbt (tpch_mart)
+```
+
+## Struktur Repositori
+
+```text
+.
+├── docker-compose.yml            # Orkestrasi service: minio, minio-init, spark, dbt
+├── docker/                       # Semua Dockerfile & dependency container
+│   ├── Dockerfile.minio          # Build MinIO server + mc client
+│   ├── Dockerfile.spark          # Spark 3.5.5 + Iceberg 1.8.1 + Hadoop S3A jars
+│   ├── Dockerfile.dbt            # Python 3.11 + dbt-spark[PyHive]
+│   └── requirements-dbt.txt
+├── conf/                         # Konfigurasi Spark
+│   ├── spark-defaults.conf       # Catalog Iceberg (lakehouse) & koneksi MinIO S3A
+│   └── log4j2.properties         # Pengaturan log level Spark
+├── scripts/                      # Entrypoint CLI (berurutan 1 → 3, atau run_pipeline.sh)
+│   ├── run_pipeline.sh           # Jalankan seluruh pipeline end-to-end
+│   ├── 1_generate_tpch.sh        # Step 1: Generate CSV TPC-H dengan DBGEN
+│   ├── 2_upload_minio.sh         # Step 2: Upload CSV ke MinIO (raw/tpch)
+│   ├── 3_load_iceberg.sh         # Step 3: Load CSV ke tabel Iceberg (lakehouse.tpch.*)
+│   ├── spark_submit.sh           # Helper untuk menjalankan script PySpark di container spark
+│   └── reset_clean.sh            # Hapus semua data & restart container dari awal
+├── spark/                        # Kode PySpark
+│   ├── session.py                # Factory SparkSession
+│   ├── tpch_schemas.py           # Definisi StructType untuk 8 tabel TPC-H
+│   ├── ingest/                   # Load & verifikasi data ke Iceberg
+│   │   ├── load_tables.py        # Inisialisasi schema & load CSV → Iceberg
+│   │   └── verify_tables.py      # Cek row count vs ekspektasi SF=1
+│   ├── queries/                  # Query analitik TPC-H & preview data mart
+│   │   ├── q01_pricing_summary.py
+│   │   ├── q03_shipping_priority.py
+│   │   ├── q10_returned_items.py
+│   │   └── query_data_mart.py
+│   └── benchmarks/               # Benchmark performa storage & partitioning
+│       ├── benchmark_csv_vs_iceberg.py
+│       └── benchmark_partitioning.py
+├── dbt/                          # Transformasi & data quality test (dbt-spark)
+│   ├── dbt_project.yml           # Konfigurasi project dbt
+│   ├── profiles.yml              # Koneksi ke Spark Thrift Server (spark:10000)
+│   └── models/
+│       ├── sources.yml           # Referensi tabel Iceberg di schema tpch
+│       ├── staging/              # stg_customer, stg_orders, stg_lineitem, stg_nation
+│       └── marts/                # fct_customer_revenue + schema.yml (not_null & unique test)
+└── out/                          # Hasil output benchmark (grafik & execution plan)
+```
+
+---
 
 ## Quick Start
 
-### 1. Inisialisasi Environment & Services
-Jalankan infrastruktur Docker (MinIO, Spark, dbt):
+### 1. Jalankan Infrastruktur Docker
 ```bash
 docker compose up -d --build
 ```
+Service yang aktif:
+- **MinIO**: API di `http://localhost:9000`, Console di `http://localhost:9001` (`minio` / `minio123`)
+- **Spark Thrift Server**: Port `10000`, Spark UI di `http://localhost:4040`
+- **dbt**: Container siap pakai untuk menjalankan transformasi & test
 
-> [!TIP]
-> **Script End-to-End**: Anda bisa menjalankan seluruh langkah di bawah secara otomatis (generate data, upload, load ke Iceberg, run dbt, dan run test) dengan satu perintah:
-> ```bash
-> # Menjalankan seluruh pipeline untuk SF 1
-> bash scripts/run_pipeline.sh 1
-> ```
-
-### 2. Generate Data TPC-H (CSV)
-Generate TPC-H dataset dengan DBGEN (default Scale Factor = 1):
+### 2. Jalankan Seluruh Pipeline (End-to-End)
 ```bash
-# Untuk SF 1 (~1GB)
-bash scripts/generate_tpch.sh 1
+./scripts/run_pipeline.sh 1
+```
+(Ganti `1` dengan Scale Factor lain, misal `10` untuk ~10GB).
 
-# Untuk SF 10 (~10GB)
-bash scripts/generate_tpch.sh 10
+Atau jalankan per tahap:
+```bash
+./scripts/1_generate_tpch.sh 1          # Generate CSV ke data/tpch
+./scripts/2_upload_minio.sh             # Upload CSV ke MinIO bucket raw/tpch
+./scripts/3_load_iceberg.sh             # Load semua tabel ke Iceberg (lakehouse.tpch.*)
+docker compose exec dbt dbt run         # Build staging & data mart (lakehouse.tpch_mart.*)
+docker compose exec dbt dbt test        # Jalankan data quality test
 ```
 
-### 3. Upload CSV ke MinIO raw bucket
-Unggah data CSV hasil generate ke MinIO raw bucket:
+---
+
+## Verifikasi, Query & Benchmarking
+
 ```bash
-bash scripts/minio/upload.sh
-```
+# Cek koneksi dbt ke Spark Thrift Server
+docker compose exec dbt dbt debug
 
-### 4. Load CSV ke Iceberg Lakehouse
-Jalankan script loading untuk memindahkan data CSV di MinIO raw bucket ke tabel Iceberg:
-```bash
-bash scripts/load_to_iceberg.sh
-```
+# Verifikasi row count 8 tabel TPC-H (SF=1)
+./scripts/spark_submit.sh ingest/verify_tables.py
 
-### 5. Eksekusi Transformasi & Pengujian dbt
-Jalankan model transformasi dan lakukan pengujian kualitas data mart:
-```bash
-# Transformasi ke Data Mart
-docker compose exec dbt dbt run --profiles-dir . --project-dir .
+# Preview hasil Data Mart (lakehouse.tpch_mart.fct_customer_revenue)
+./scripts/spark_submit.sh queries/query_data_mart.py
 
-# Verifikasi Data Quality Tests
-docker compose exec dbt dbt test --profiles-dir . --project-dir .
-```
+# Jalankan query TPC-H (Q1 / Q3 / Q10)
+./scripts/spark_submit.sh queries/q01_pricing_summary.py
 
-## Benchmarking
-Kami menyediakan dua script benchmarking untuk membandingkan performa pemrosesan query:
+# Benchmark CSV vs Iceberg & Unpartitioned vs Partitioned
+./scripts/spark_submit.sh benchmarks/benchmark_csv_vs_iceberg.py
+./scripts/spark_submit.sh benchmarks/benchmark_partitioning.py
 
-1. **CSV vs Iceberg (Format Kolom)**:
-   Perbandingan query langsung ke raw CSV di MinIO vs Iceberg (Parquet) di MinIO:
-   ```bash
-   ./scripts/spark_submit.sh benchmark_csv_vs_iceberg.py
-   ```
-
-2. **Unpartitioned vs Partitioned (Partition Pruning)**:
-   Perbandingan query filter pada tabel Iceberg biasa vs tabel Iceberg yang dipartisi berdasarkan tahun (`years(l_shipdate)`):
-   ```bash
-   ./scripts/spark_submit.sh benchmark_partitioning.py
-   ```
-
-## Struktur Repositori & File Penting
-- `Dockerfile.spark`: Custom Spark image yang mem-bake AWS S3A & Iceberg connectors langsung ke system classpath JVM.
-- `Dockerfile.dbt`: Custom dbt image dengan pre-installed `dbt-spark[PyHive]` adapter.
-- `conf/spark-defaults.conf`: Konfigurasi global catalog Iceberg (`lakehouse`) dan endpoint MinIO.
-- `conf/log4j2.properties`: Konfigurasi filter log untuk mereduksi log verbosity Spark JVM.
-- `spark/session.py`: Wrapper SparkSession yang dinamis untuk standalone PySpark scripts.
-- `dbt/dbt_project.yml`: Konfigurasi project dbt (staging dimaterialisasi sebagai `table` agar kompatibel dengan Iceberg Hadoop Catalog).
-- `dbt/profiles.yml`: Konfigurasi profile koneksi dbt ke Spark Thrift Server (port `10000`).
-
-## Web Interfaces (Monitoring & GUI)
-Setelah infrastruktur berjalan, Anda dapat mengakses beberapa web interface berikut untuk memantau pipeline:
-* **MinIO Console**: [http://localhost:9001](http://localhost:9001) (Credentials: `minio` / `minio123`) - Untuk eksplorasi storage bucket (`raw`, `lakehouse`, `warehouse`) dan file metadata Iceberg.
-* **Spark UI**: [http://localhost:4040](http://localhost:4040) - Untuk memantau status query, job, dan execution plan dari Spark Thrift Server.
-* **dbt Docs**: [http://localhost:8080](http://localhost:8080) - Dokumentasi skema dan visualisasi data lineage graph dari data mart.
-
-## Verifikasi
-
-### 1. Verifikasi Ingestion Iceberg
-Untuk mengecek jumlah baris tabel Iceberg langsung di catalog `lakehouse` (dibandingkan dengan baris expected SF 1):
-```bash
-bash scripts/spark_submit.sh verify_tables.py
-```
-
-### 2. Query dbt Data Mart
-Untuk melakukan query langsung dan melihat preview hasil data mart dari dbt (`lakehouse.tpch_mart.fct_customer_revenue`):
-```bash
-bash scripts/spark_submit.sh query_data_mart.py
+# Generate & buka dbt Docs di http://localhost:8080
+docker compose exec dbt dbt docs generate
+docker compose exec dbt dbt docs serve --host 0.0.0.0 --port 8080
 ```
 
 ## Reset Environment
-Jika Anda ingin menghapus seluruh data (MinIO & Iceberg) dan memulai ulang stack dari awal (*clean slate*):
+Untuk menghapus semua data MinIO & CSV lokal lalu memulai ulang dari awal:
 ```bash
-bash scripts/reset_clean.sh
+./scripts/reset_clean.sh
 ```
+
+---
 
 ## Anggota Tim
 | NIM | Nama |
@@ -114,8 +121,8 @@ bash scripts/reset_clean.sh
 
 ## Deklarasi Penggunaan AI / LLM
 Proyek ini dikembangkan dengan bantuan AI / Large Language Models (LLM):
-* **GitHub Copilot** - Digunakan untuk menyusun struktur dan implementasi awal proyek
-* **Antigravity (3.5 Flash)** - Digunakan untuk debugging yang lebih mendalam dan menyempurnakan pipeline secara end-to-end.
+* **GitHub Copilot** - Menyusun struktur dan implementasi awal proyek.
+* **Antigravity** - Debugging, perbaikan pipeline end-to-end, dan perapihan struktur repositori.
 
 ## Referensi Eksternal
 * [Hands-On with Apache Iceberg on Your Laptop: Deep Dive with Apache Spark, Nessie, MinIO, and More (Hackernoon)](https://hackernoon.com/hands-on-with-apache-iceberg-on-your-laptop-deep-dive-with-apache-spark-nessie-minio-and-more)
